@@ -1,6 +1,12 @@
-import { execute } from './db';
+import { execute, query } from './db';
 
 export async function loadRiverbankCase(): Promise<void> {
+  const existingData = await query('SELECT COUNT(*) as count FROM game_state');
+  if (existingData.length > 0 && existingData[0].count > 0) {
+    console.log('Case already loaded, skipping initialization');
+    return;
+  }
+
   await execute(`DELETE FROM people`);
   await execute(`DELETE FROM locations`);
   await execute(`DELETE FROM timeline_events`);
