@@ -1,26 +1,47 @@
 import { execute, query } from './db';
 
+let isLoading = false;
+let isLoaded = false;
+
 export async function loadRiverbankCase(): Promise<void> {
+  if (isLoaded) {
+    console.log('Case already loaded');
+    return;
+  }
+
+  if (isLoading) {
+    console.log('Case is currently loading, waiting...');
+    while (isLoading) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    return;
+  }
+
+  isLoading = true;
+
   try {
     const existingLocations = await query('SELECT COUNT(*) as count FROM locations');
     if (existingLocations.length > 0 && existingLocations[0].count > 0) {
-      console.log('Case already loaded, skipping initialization');
+      console.log('Case already loaded in database');
+      isLoaded = true;
+      isLoading = false;
       return;
     }
   } catch (err) {
     console.log('Tables not yet initialized, proceeding with case load');
   }
 
-  await execute(`DELETE FROM timeline_events`);
-  await execute(`DELETE FROM interviews`);
-  await execute(`DELETE FROM relationships`);
-  await execute(`DELETE FROM evidence`);
-  await execute(`DELETE FROM people`);
-  await execute(`DELETE FROM game_state`);
-  await execute(`DELETE FROM locations`);
+  try {
+    await execute(`DELETE FROM timeline_events`);
+    await execute(`DELETE FROM interviews`);
+    await execute(`DELETE FROM relationships`);
+    await execute(`DELETE FROM evidence`);
+    await execute(`DELETE FROM people`);
+    await execute(`DELETE FROM game_state`);
+    await execute(`DELETE FROM locations`);
 
-  await execute(`
-    INSERT INTO locations VALUES
+    await execute(`
+      INSERT INTO locations VALUES
       ('LOC001', 'Riverside Park', 'park', '123 River Road'),
       ('LOC002', 'Chen Residence', 'residential', '45 Oak Street'),
       ('LOC003', 'Webb Residence', 'residential', '78 Maple Drive'),
@@ -31,10 +52,10 @@ export async function loadRiverbankCase(): Promise<void> {
       ('LOC008', 'School', 'institutional', '100 Education Lane'),
       ('LOC009', 'Home Depot', 'commercial', '200 Industrial Blvd'),
       ('LOC010', 'Cemetery', 'other', '15 Memorial Drive');
-  `);
+    `);
 
-  await execute(`
-    INSERT INTO people VALUES
+    await execute(`
+      INSERT INTO people VALUES
       ('P001', 'Margaret Chen', 42, 'Librarian', '45 Oak Street', 'middle_class', 'organized, kind, anxious'),
       ('P002', 'Thomas Webb', 45, 'Construction Worker', '78 Maple Drive', 'working_class', 'aggressive, controlling, resentful'),
       ('P003', 'Sarah Webb', 12, 'Student', '78 Maple Drive', 'dependent', 'quiet, observant, traumatized'),
@@ -50,10 +71,10 @@ export async function loadRiverbankCase(): Promise<void> {
       ('P013', 'Jennifer Lake', 39, 'Real Estate Agent', '123 Lakeview', 'upper_middle_class', 'ambitious, charming, secretive'),
       ('P014', 'Robert Hayes', 47, 'Hardware Store Owner', '200 Industrial Blvd', 'middle_class', 'practical, helpful, curious'),
       ('P015', 'Detective Sam Porter', 52, 'Detective', '88 Station Road', 'middle_class', 'experienced, methodical, patient');
-  `);
+    `);
 
-  await execute(`
-    INSERT INTO relationships VALUES
+    await execute(`
+      INSERT INTO relationships VALUES
       ('R001', 'P001', 'P002', 'ex_spouse', -8.5, ARRAY['custody_battle', 'bitter_divorce', 'financial_dispute']),
       ('R002', 'P001', 'P006', 'spouse', 9.2, ARRAY['loving_marriage']),
       ('R003', 'P001', 'P003', 'mother', 8.5, ARRAY['protective']),
@@ -66,10 +87,10 @@ export async function loadRiverbankCase(): Promise<void> {
       ('R010', 'P011', 'P002', 'observer', 3.0, ARRAY['saw_him_leave']),
       ('R011', 'P001', 'P013', 'acquaintance', -3.5, ARRAY['library_board_dispute']),
       ('R012', 'P002', 'P014', 'customer', 4.0, ARRAY['recent_purchase']);
-  `);
+    `);
 
-  await execute(`
-    INSERT INTO timeline_events VALUES
+    await execute(`
+      INSERT INTO timeline_events VALUES
       ('E001', 'P001', '2024-03-15 17:30:00', 'LOC004', 'Closing library', ARRAY['P009'], ARRAY[], TRUE, 'CCTV'),
       ('E002', 'P001', '2024-03-15 17:45:00', 'LOC004', 'Left library', ARRAY[], ARRAY[], TRUE, 'CCTV'),
       ('E003', 'P001', '2024-03-15 18:00:00', 'LOC002', 'Arrived home', ARRAY['P006'], ARRAY[], TRUE, 'Husband'),
@@ -90,10 +111,10 @@ export async function loadRiverbankCase(): Promise<void> {
       ('E018', 'P003', '2024-03-15 18:00:00', 'LOC003', 'Doing homework', ARRAY['P002', 'P007'], ARRAY[], TRUE, 'Parents'),
       ('E019', 'P002', '2024-03-18 14:30:00', 'LOC009', 'Purchased hiking boots', ARRAY[], ARRAY['EV006'], TRUE, 'Receipt'),
       ('E020', 'P006', '2024-03-15 19:30:00', 'LOC001', 'Discovered body, called 911', ARRAY[], ARRAY[], TRUE, '911 call');
-  `);
+    `);
 
-  await execute(`
-    INSERT INTO evidence VALUES
+    await execute(`
+      INSERT INTO evidence VALUES
       ('EV001', 'physical', 'LOC001', 'Rock with blood and hair, used as weapon', NULL, FALSE, NULL, FALSE, TRUE),
       ('EV002', 'physical', 'LOC001', 'Victim''s phone, screen cracked', NULL, FALSE, NULL, FALSE, TRUE),
       ('EV003', 'digital', 'LOC001', 'Security camera footage showing vehicle near park at 6:55pm', NULL, TRUE, 'Thomas Webb''s truck visible', FALSE, TRUE),
@@ -108,10 +129,16 @@ export async function loadRiverbankCase(): Promise<void> {
       ('EV012', 'testimonial', 'LOC001', 'Jason Pierce seen running from park at 7:20pm', NULL, TRUE, 'Red herring', FALSE, TRUE);
   `);
 
-  await execute(`
-    INSERT INTO game_state VALUES
-      (1, 'P001', '2024-03-16 08:00:00', 1, 50000, 50, FALSE, NULL);
-  `);
+    await execute(`
+      INSERT INTO game_state VALUES
+        (1, 'P001', '2024-03-16 08:00:00', 1, 50000, 50, FALSE, NULL);
+    `);
+
+    isLoaded = true;
+    console.log('Case loaded successfully');
+  } finally {
+    isLoading = false;
+  }
 }
 
 export const INTERVIEW_RESPONSES: Record<string, Record<string, { answer: string; body_language?: string; stress_increase: number }>> = {
